@@ -789,11 +789,13 @@ async function newsRequest(path,method='GET',payload=null,requiresLogin=false){
  if(!r.ok)throw Error('Supabase '+r.status+': '+(await r.text()).slice(0,350));
  return r.status===204?null:await r.json();
 }
-const newsBucket='kho-hoc-lieu-to5';
+const newsBucket='ban-tin-cong-khai';
+const newsLegacyBucket='kho-hoc-lieu-to5';
 function mediaPath(entry){return entry&&typeof entry==='object'?(entry.path||''):''}
 function mediaUrl(entry){
  const path=mediaPath(entry);if(!path)return typeof entry==='string'?entry:(entry?.url||'');
- return newsUrl+'/storage/v1/object/authenticated/'+encodeURIComponent(newsBucket)+'/'+path.split('/').map(encodeURIComponent).join('/');
+ const bucket=entry.bucket||newsLegacyBucket;
+ return newsUrl+'/storage/v1/object/'+(bucket===newsBucket?'public':'authenticated')+'/'+encodeURIComponent(bucket)+'/'+path.split('/').map(encodeURIComponent).join('/');
 }
 async function mediaDownload(entry){
  const path=mediaPath(entry);if(!path)throw Error('Thiếu đường dẫn tệp.');
@@ -846,7 +848,7 @@ async function newsUpload(file,postId,kind,index){
   const r=await fetch(endpoint,{method:'POST',headers:{apikey:newsKey,Authorization:'Bearer '+newsAuth(),'Content-Type':mime,'x-upsert':'false'},body:file});
   if(!r.ok)throw Error('Tải tệp '+file.name+' thất bại ('+r.status+'): '+(await r.text()).slice(0,220));
  }
- return {path,name:file.name,type:mime,size:file.size};
+ return {path,bucket:newsBucket,name:file.name,type:mime,size:file.size};
 }
 function cloudToPost(p){return {id:p.id,Title:p.title||'',Category:p.category||'',Summary:p.summary||'',Content:p.content||'',createdTs:Date.parse(p.created_at)||0,createdAt:new Date(p.created_at).toLocaleString('vi-VN'),images:Array.isArray(p.images)?p.images:[],files:Array.isArray(p.attachments)?p.attachments:[],cloud:true,author_id:p.author_id}}
 async function cloudPosts(){const rows=await newsRequest('to5_news_posts?select=id,title,category,summary,content,images,attachments,created_at,author_id&status=eq.published&order=created_at.desc&limit=100');return rows.map(cloudToPost)}
@@ -970,14 +972,15 @@ el('nsReset').onclick=()=>{if(!confirm('Tạo bản tin mẫu mới? Nội dung 
 </section>
 <script>
 (function(){
- const api='https://xltwigkbyouxzasasbvg.supabase.co',key='sb_publishable_mWTH1vo0T_VE0eW7Mfp9_A_ZIOc6L4N',bucket='kho-hoc-lieu-to5';
+ const api='https://xltwigkbyouxzasasbvg.supabase.co',key='sb_publishable_mWTH1vo0T_VE0eW7Mfp9_A_ZIOc6L4N',bucket='ban-tin-cong-khai',legacyBucket='kho-hoc-lieu-to5';
  const $=id=>document.getElementById(id),view=$('to5PublicView'),cards=$('pvCards'),article=$('pvArticle'),status=$('pvStatus');
  let posts=[];
  const make=(tag,txt,cls)=>{const x=document.createElement(tag);if(txt!==undefined)x.textContent=txt;if(cls)x.className=cls;return x};
  const objectPath=x=>x&&typeof x==='object'?x.path:null;
  async function asset(x){
   const path=objectPath(x);if(!path)return typeof x==='string'?x:(x?.url||'');
-  const url=api+'/storage/v1/object/authenticated/'+encodeURIComponent(bucket)+'/'+path.split('/').map(encodeURIComponent).join('/');
+  const chosen=x.bucket||legacyBucket;
+  const url=api+'/storage/v1/object/'+(chosen===bucket?'public':'authenticated')+'/'+encodeURIComponent(chosen)+'/'+path.split('/').map(encodeURIComponent).join('/');
   const r=await fetch(url,{headers:{apikey:key,Authorization:'Bearer '+key}});
   if(!r.ok)throw Error('Chưa được cấp quyền đọc tệp công khai ('+r.status+')');
   return URL.createObjectURL(await r.blob());
